@@ -1,0 +1,228 @@
+\documentclass{article}
+
+\title{Discrete Hidden Markov Model\\C Source Code}
+\author{Jerome V. Braun}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Definitions needed for typographical clarity.
+\newcommand{\argmax}{\arg\max}   % FIX THIS LATER
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+\section{Introduction and Acknowledgments}
+This is a set of C routines for working with discrete hidden Markov
+models.  I have found writing them useful both as a self-tutorial
+and in the service of developing several application programs.
+Therefore, I have decided to make them more widely available.
+
+Several chunks of code from Ernst Stadlober's
+\verb\Win_rand~1.0\  library of random number generators were used.
+I have provided a set of wrapper functions so
+that it is feasible to swap new generators into their place if
+desired.  I may implement them myself to make them a little more readable.
+
+The code and this documentation were originally encapsulated in
+NoWeb.  However, for ease of use by others, the code was untangled and
+this document was used to capture most of the woven text.  As a
+consequence THIS IS NOT A COHERENT DOCUMENT CURRENTLY.
+
+\section{Programming conventions}
+I have used single-letter variable
+names in many of the routines which implement mathematical functions
+or algorithms.  My hope is that the juxtaposition of the source
+code with the documentation given here will ease the reading, since
+the code in many cases is a direct translation of mathematical
+formulas.
+
+Each program file has a programmer's comment block which gives overall
+identifying information.
+
+Each function or subroutine has a comment block which provides an
+example call, the purpose of the function, any notes on how the
+algorithm works, the expected inputs, the expected outputs, and
+whether the function returns a value.
+
+\section{Hidden Markov model notation}
+One of the frustrating things about developing code for the hidden
+Markov model is the wide variety of notations that are used to denote
+the same or a quite similar
+underlying statistical model.  It is necessary to clearly
+specify the notation up front, since slightly different models
+yield slightly different algorithms.
+
+My notation is relatively
+usual.  It  follows \cite{rabiner-juang:1986},
+who provided a nice review of the model and associated algorithms,
+and \cite{mackay:1996}, who provided an elegant approximation of
+full Bayesian inference.  For programming simplicity, the states
+and observations are notated by integers -- for application it will be
+necessary to translate real data to this notation and back.
+
+\begin{itemize}
+\item $t$:  sequence index, $t \in 1...T$
+\item $I$: number of hidden states in the model
+\item $M$: number of types of observations
+\item $S = \{ s_1,\dots,s_T \}$: hidden state sequence ($S_t \in 1...I$)
+\item $X = \{ x_1,\dots,x_T \}$: observed sequence ($X_t \in 1...M$)
+\item $A = \{ a_{ij} \}$, $a_{ij} = P(s_{t+1} = j | s_{t} = i)$: state
+  transition matrix
+\item $B = \{ b_{im} \}$, $b_{im} = P(x_{t} = m | s_{t} = i)$:
+  observation emission matrix
+\item $\pi = \{ \pi_{i} \}$, $\pi_i = P(s_1 = i)$: initial state
+  distribution
+\item $\theta = \{ A, B, \pi \}$: hidden Markov model parameters
+\item $U = \{u^{(A)}, u^{(B)}, u^{(\pi)} \}$: hyperparameters which
+  define the prior over $\theta$
+\end{itemize}
+
+\section{Statistical theory}
+With the model defined, we may conduct statistical inference.
+In the frequentist framework, there are three tasks of inference
+for hidden Markov models.
+\begin{enumerate}
+\item[1.] Find the distribution of the observations given the model, that
+  is, $P(X|\theta  )$.
+\item[2.] Find the most probable state trajectory given the model and the
+  observations, that is, $\argmax_{S} P(S|X \theta  )$.
+\item[3.] Find the maximum likelihood estimate of $\theta$, that is,
+$\argmax_{\theta} P(X|\theta )$.
+\end{enumerate}
+
+For a
+given hidden Markov model parameterized by $\theta$, the Markov
+assumptions give the joint probability of the state sequence and the
+observations
+\[
+P(XS|\theta ) =
+\pi_{s_1}
+\left( \prod_{t=1}^{T-1} a_{s_t s_{t+1}} \right)
+\left( \prod_{t=1}^{T} b_{s_t x_t} \right).
+\]
+By summing over all possible state sequences, we could
+obtain
+\[ P(X|\theta ) = \sum_S P(XS|\theta ), \]
+and obtain the conditional distribution of $S$ given $X$ as
+\[ P(S|X\theta) = \frac {1}{ P(X|\theta ) } P(XS|\theta). \]
+In practice, the number of calculations involved is too many
+to consider using these analytic approaches to determine either
+the most likely state or the maximum likelihood estimate of $\theta$.
+The usual approach is to use an iterative method which converges to
+the desired quantities (Baum-Welch algorithm, EM algorithm).
+
+In the Bayesian framework we must also consider what (logically) prior
+information exists for $\theta$.  Note that this is a different set of
+hypotheses than considered in the frequentist version of the problem
+-- thus, although we confusingly use the same notation, we should not
+be surprised to obtain differing results.  There are two more tasks.
+\begin{enumerate}
+\item[4.] Assign a prior distribution for $\theta$, that is, $P(\theta|U)$.
+\item[5.] Determine the posterior distribution of the model parameters
+  given the prior and the data, that is, $P(S \theta|XU)$.
+\end{enumerate}
+
+In practice it is too difficult again to conduct the calculation of
+the posterior distribution.  However, it is possible to approximate
+the posterior, either by Markov chain Monte Carlo techniques or by
+analytic approximations.  We will implement an analytic approximation
+developed in \cite{mackay:1996}.
+
+Choose prior probabilities for $\theta$ to be
+products of independent Dirichlet distributions with parameters given by $U$.
+Then although the posterior distribution $P(S \theta |X U)$ is still
+intractable, we can develop an approximation $Q(S \theta)$ by
+constraining it to be separable,
+\[ Q(S \theta) = Q_S(S) Q_A(A) Q_B(B) Q_\pi(\pi), \]
+and minimizing the free energy (Kullback-Leibler distance,
+cross-entropy) of the approximation to the true posterior distribution.
+MacKay showed that a variant of the EM algorithm could be used to
+iteratively obtain the parameters of the approximation.
+
+MacKay noted that initializing the counts of the Baum-Welch algorihtm
+with the values of the prior distribution given above maximizes the posterior
+distribution in the case that we are working in the softmax
+basis \cite{mackay:1997}.
+
+\section{More notes on notation}
+
+\subsection{E-step}
+The usual recursions:
+\begin{eqnarray*}
+\alpha_i^{(1)} &=& \pi_i b_{ix_1} \\
+\alpha_j^{(t+1)} &=& b_{jx_{t+1}} \sum_i \alpha_i^{(t)} a_{ij} \\
+\beta_i^{(T)} &=& b_i x_T \\
+\beta_i^{(t)} &=& b_{ix_t} \sum_j a_{ij} \beta_j^{(t+1)} \\
+\end{eqnarray*}
+
+\noindent
+Rabiner \& Juang notation:
+\begin{eqnarray*}
+\alpha_i^{(1)} &=& \pi_i b_{ix_1} \\
+\alpha_j^{(t+1)} &=& b_{jx_{t+1}} \sum_i \alpha_i^{(t)} a_{ij} \\
+\beta_i^{(T)} &=& 1 \\
+\beta_i^{(t)} &=& b_{ix_t} \sum_j a_{ij} \beta_j^{(t+1)} b_{jx_{t+1}} \\
+\end{eqnarray*}
+
+\begin{eqnarray*}
+\xi_{ij}^{(t)}
+&=& \frac {1}{Z_\xi(t)} \alpha_i^{(t)} a_{ij} \beta_j^{(t+1)} b_{jx_{t+1}} \\
+Z_\xi(t) &=& \sum_{ij} \alpha_i^{(t)} a_{ij} \beta_j^{(t+1)} b_{jx_{t+1}} \\
+\gamma_i^{(t)}
+&=& \frac { \alpha_i^{(t)} \beta_i^{(t)} } { Z_\gamma(t) } \\
+Z_\gamma(t) &=& \sum_i \alpha_i^{(t)} \beta_i^{(t)} \\
+\end{eqnarray*}
+
+\subsection{Scaled}
+With scaling $s$.
+\begin{eqnarray*}
+\hat\alpha_i^{(1)} &=& \pi_i b_{ix_1} \\
+s_1 &=& \sum_i \hat\alpha_i^{(1)} \\
+\alpha_i^{(1)} &=& \alpha_i^{(1)} / s_1 \\
+\hat\alpha_j^{(t+1)} &=& b_{jx_{t+1}} \sum_i \alpha_i^{(t)} a_{ij} \\
+s_t &=& \sum_i \hat\alpha_i^{(t)} \\
+\alpha_i^{(t)} &=& \hat\alpha_i^{(t)} / s_t \\
+\beta_i^{(T)} &=& 1 / s_T \\
+\beta_i^{(t)} &=& b_{ix_t} \sum_j a_{ij} \beta_j^{(t+1)} b_{jx_{t+1}}
+/ s_t \\
+\end{eqnarray*}
+
+\begin{eqnarray*}
+\xi_{ij}^{(t)}
+&=& \frac {1}{Z_\xi(t)} \alpha_i^{(t)} a_{ij} \beta_j^{(t+1)}
+b_{jx_{t+1}} /s_{t+1} \\
+Z_\xi(t) &=& \sum_{ij} \alpha_i^{(t)} a_{ij} \beta_j^{(t+1)} b_{jx_{t+1}} \\
+\gamma_i^{(t)}
+&=& \frac { \alpha_i^{(t)} \beta_i^{(t)} } { Z_\gamma(t) } \\
+Z_\gamma(t) &=& \sum_i \alpha_i^{(t)} \beta_i^{(t)} \\
+\end{eqnarray*}
+
+\subsection{M-step}
+\begin{eqnarray*}
+\bar\pi_i = \gamma_i^{(1)}
+&=& \frac{\gamma_i^{(1)}}{\sum_j \gamma_j^{(1)}} \\
+\bar a_{ij}
+&=& \frac
+{ \sum_{t=1}^{T-1} \xi_{ij}^{(t)} }
+{ \sum_{t=1}^{T-1} \gamma_i^{(t)} } \\
+\bar b_{im}
+&=& \frac
+{ \sum_{t=1}^{T} \gamma_i^{(t)} \delta(m, x_t) }
+{ \sum_{t=1}^{T} \gamma_i^{(t)}  } \\
+\end{eqnarray*}
+
+
+\bibliographystyle{plain}
+\bibliography{dhmm-bib}
+
+\end{document}
+
+
+
+
+
+
+
+
