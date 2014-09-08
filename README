@@ -1,0 +1,30 @@
+dhmm
+
+Description
+
+  A set of C routines and programs for working with
+  discrete hidden Markov models.
+
+Copyright
+
+  See the file COPYRIGHT accompanying this distribution.
+
+Prerequisites
+
+  Tested with Microsoft VC++ 5.0.
+
+
+Installation
+
+  unzip and untar the distribution file if Unix
+  unzip the distribution if Windows
+
+Recent Changes
+
+  See the file CHANGES accompanying this distribution.
+
+Future Enhancements
+
+  1.  A Makefile to handle creating the utility programs.
+
+$Id: README,v 1.4 1999/07/27 23:18:58 jvbraun Exp $

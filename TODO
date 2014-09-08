@@ -1,0 +1,25 @@
+Add version information to the .h files.
+
+Fix HTML docs to get introduction and theory looking right;
+pursue fixing noweb HTML output using TtH.
+
+Create some simple standard test data sets.
+
+Write test suites as Perl scripts.
+
+Create a module for extending Perl with DHMM.
+
+Make an index.html file to point to everything nicely.
+
+Add test code for generate_sequence which is not symmetric
+in I and M.
+
+Consider changing style on single statement for loops.
+
+Write the programs to spit output to STDOUT rather than
+to files input, or give a default to print to STDOUT.
+This should ease calling the programs with Perl.
+
+
+
+
